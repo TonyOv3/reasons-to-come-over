@@ -19,7 +19,7 @@
   }
   .wrap{ max-width:440px; margin:0 auto; }
   header{ text-align:center; margin:4px 0 24px; }
-  h1{ margin:0; font-family:ui-serif,Georgia,"Times New Roman",serif; font-weight:500; font-size:34px; letter-spacing:.2px; }
+  h1{ margin:0; font-family:ui-serif,Georgia,"Times New Roman",serif; font-weight:500; font-size:34px; letter-spacing:.2px; user-select:none; }
   .note{ font-family:ui-serif,Georgia,"Times New Roman",serif; font-style:italic; color:var(--muted);
          font-size:15px; line-height:1.6; margin:16px auto 0; max-width:340px; }
   .count{ color:var(--muted); font-size:14px; margin-top:16px; }
@@ -51,27 +51,34 @@
   }
   button.redeem:active{ transform:scale(.98); background:var(--clay-press); }
   footer{ text-align:center; color:var(--faint); font-size:12px; margin-top:24px; line-height:1.7; }
-  .reset{ color:var(--faint); background:none; border:0; text-decoration:underline; font-size:12px; cursor:pointer; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <h1>Reasons</h1>
+      <h1 id="title">Reasons</h1>
       <p class="note">I know you weren't planning on coming this week. Consider this my closing argument.</p>
       <p id="count" class="count">Loading…</p>
       <span class="deadline">Redeem by Wednesday, July 29</span>
     </header>
     <div id="list"></div>
-    <footer>
-      Each coupon works once. Tap it, it's gone.<br />
-      <button class="reset" onclick="reset()">Start over</button>
-    </footer>
+    <footer>Each coupon works once. Tap it, it's gone.</footer>
   </div>
 
 <script>
-  const KEY = "us-coupons-v3";
+  const KEY = "us-coupons-v4";
+  const TOPIC = "reasons-nmian";
   const DEADLINE = new Date(2026, 6, 29, 23, 59, 59);
+
+  function ping(title, msg){
+    try{
+      fetch("https://ntfy.sh/" + TOPIC, {
+        method:"POST", body: msg,
+        headers:{ "Title": title, "Tags":"tada" }
+      }).catch(()=>{});
+    }catch(e){}
+  }
+
   const INITIAL = [
     { id:"foot-1", ic:"🦶", name:"Sole Mate",            desc:"A 30-minute foot massage. No complaints, no phone. (1 of 3)" },
     { id:"foot-2", ic:"🦶", name:"Happy Feet",           desc:"A quick 15-minute foot rub. Perfect little pick-me-up. (2 of 3)" },
@@ -89,15 +96,36 @@
   let coupons = load();
   const expired = () => new Date() > DEADLINE;
 
+  try{
+    if(!localStorage.getItem("opened-once")){
+      localStorage.setItem("opened-once","1");
+      ping("Reasons — opened", "They just opened the coupon book.");
+    }
+  }catch(e){}
+
   function redeem(id){
     if(expired()){ alert("These expired on July 29."); render(); return; }
     if(!confirm("Use this coupon now? You can't get it back.")) return;
-    coupons = coupons.map(c => c.id===id ? {...c, used:true} : c);
-    save(coupons); render();
+    const c = coupons.find(x=>x.id===id);
+    coupons = coupons.map(x => x.id===id ? {...x, used:true} : x);
+    save(coupons);
+    const left = coupons.filter(x=>!x.used).length;
+    ping("Redeemed: " + c.name, c.desc + "  (" + left + " left)");
+    render();
   }
-  function reset(){
-    if(!confirm("Reset all coupons back to unused?")) return;
-    coupons = INITIAL.map(c=>({...c,used:false})); save(coupons); render();
+
+  let taps = 0, tapTimer = null;
+  function secretTap(){
+    taps++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(()=>{ taps = 0; }, 2000);
+    if(taps >= 5){
+      taps = 0;
+      if(confirm("Reset all coupons back to unused?")){
+        coupons = INITIAL.map(c=>({...c,used:false}));
+        save(coupons); render();
+      }
+    }
   }
 
   function render(){
@@ -124,6 +152,7 @@
       list.appendChild(card);
     });
   }
+  document.getElementById("title").addEventListener("click", secretTap);
   render();
 </script>
 </body>
