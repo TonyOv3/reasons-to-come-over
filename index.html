@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#F0EEE6" />
+<title>Reasons to Come Over</title>
+<style>
+  :root{
+    --bg:#F0EEE6; --card:#FBFAF7; --line:#E4E0D6;
+    --ink:#1A1915; --muted:#736F66; --faint:#A5A096;
+    --clay:#C96442; --clay-press:#B0543A; --clay-soft:#F3E7E0;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:32px 18px calc(44px + env(safe-area-inset-bottom));
+  }
+  .wrap{ max-width:440px; margin:0 auto; }
+  header{ text-align:center; margin:4px 0 24px; }
+  h1{ margin:0; font-family:ui-serif,Georgia,"Times New Roman",serif; font-weight:500; font-size:34px; letter-spacing:.2px; }
+  .note{ font-family:ui-serif,Georgia,"Times New Roman",serif; font-style:italic; color:var(--muted);
+         font-size:15px; line-height:1.6; margin:16px auto 0; max-width:340px; }
+  .count{ color:var(--muted); font-size:14px; margin-top:16px; }
+  .deadline{
+    display:inline-block; margin-top:14px; font-size:12.5px; font-weight:600; letter-spacing:.02em;
+    color:var(--clay); background:var(--clay-soft); border-radius:999px; padding:6px 14px;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:20px; margin-bottom:14px; transition:opacity .3s, filter .3s;
+  }
+  .card.done{ opacity:.5; }
+  .top{ display:flex; align-items:center; gap:13px; }
+  .ic{
+    width:44px; height:44px; flex:none; border-radius:12px; background:var(--clay-soft);
+    display:flex; align-items:center; justify-content:center; font-size:22px;
+  }
+  .card.done .ic{ background:#ECEAE2; filter:grayscale(1); }
+  .name{ flex:1; font-size:17px; font-weight:600; letter-spacing:.1px; }
+  .tag{
+    font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--faint); border:1px solid var(--line); border-radius:7px; padding:3px 8px;
+  }
+  .desc{ color:var(--muted); font-size:14px; line-height:1.55; margin:13px 2px 0; }
+  .card.done .desc{ color:var(--faint); }
+  button.redeem{
+    width:100%; margin-top:16px; border:0; border-radius:12px; padding:14px; font-size:15.5px;
+    font-weight:600; color:#fff; background:var(--clay); cursor:pointer; transition:transform .1s, background .2s;
+  }
+  button.redeem:active{ transform:scale(.98); background:var(--clay-press); }
+  footer{ text-align:center; color:var(--faint); font-size:12px; margin-top:24px; line-height:1.7; }
+  .reset{ color:var(--faint); background:none; border:0; text-decoration:underline; font-size:12px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Reasons to Come Over</h1>
+      <p class="note">I know you weren't planning on coming this week. Consider this my closing argument.</p>
+      <p id="count" class="count">Loading…</p>
+      <span class="deadline">Redeem by Wednesday, July 29</span>
+    </header>
+    <div id="list"></div>
+    <footer>
+      Each coupon works once. Tap it, it's gone.<br />
+      <button class="reset" onclick="reset()">Start over</button>
+    </footer>
+  </div>
+
+<script>
+  const KEY = "us-coupons-v3";
+  const DEADLINE = new Date(2026, 6, 29, 23, 59, 59);
+  const INITIAL = [
+    { id:"foot-1", ic:"🦶", name:"Sole Mate",            desc:"A 30-minute foot massage. No complaints, no phone. (1 of 3)" },
+    { id:"foot-2", ic:"🦶", name:"Happy Feet",           desc:"A quick 15-minute foot rub. Perfect little pick-me-up. (2 of 3)" },
+    { id:"foot-3", ic:"🦶", name:"Toe-tal Package",      desc:"Your third and final foot massage, 30 minutes. Make it count. (3 of 3)" },
+    { id:"body-1", ic:"💆", name:"Melt Mode",            desc:"A 30-minute full-body massage. Shower/bath & oils encouraged. (1 of 2)" },
+    { id:"body-2", ic:"💆", name:"The Full Reset",       desc:"Another 30 minutes, head to toe. No clock, no rush. (2 of 2)" },
+    { id:"break",  ic:"🥞", name:"Rise & Dine",          desc:"Breakfast, made by me. Morning, noon, or night — you just relax." },
+    { id:"din-1",  ic:"😏", name:"Get in the Kitchen",   desc:"Hand this over and I'm on dinner duty. Point me at the fridge — you relax." },
+    { id:"din-2",  ic:"🍽", name:"Sous-Chef for a Night",desc:"I cook, you clean and help with prep. Teamwork." },
+    { id:"wild",   ic:"🎟️", name:"Wild Card",            desc:"One favor of your choosing, within reason. You name it, I'm on it." },
+  ];
+
+  function load(){ try{ const s=localStorage.getItem(KEY); return s?JSON.parse(s):INITIAL.map(c=>({...c,used:false})); }catch(e){ return INITIAL.map(c=>({...c,used:false})); } }
+  function save(d){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+  let coupons = load();
+  const expired = () => new Date() > DEADLINE;
+
+  function redeem(id){
+    if(expired()){ alert("These expired on July 29."); render(); return; }
+    if(!confirm("Use this coupon now? You can't get it back.")) return;
+    coupons = coupons.map(c => c.id===id ? {...c, used:true} : c);
+    save(coupons); render();
+  }
+  function reset(){
+    if(!confirm("Reset all coupons back to unused?")) return;
+    coupons = INITIAL.map(c=>({...c,used:false})); save(coupons); render();
+  }
+
+  function render(){
+    const exp = expired();
+    const left = coupons.filter(c=>!c.used).length;
+    document.getElementById("count").textContent =
+      exp ? "This book has expired." :
+      left>0 ? `${left} of ${coupons.length} still available` : "All redeemed — but I still love you.";
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+    coupons.forEach(c=>{
+      const dead = c.used || exp;
+      const card = document.createElement("div");
+      card.className = "card" + (dead ? " done" : "");
+      card.innerHTML = `
+        <div class="top">
+          <div class="ic">${c.ic}</div>
+          <div class="name">${c.name}</div>
+          ${c.used ? '<span class="tag">Used</span>' : (exp ? '<span class="tag">Expired</span>' : '')}
+        </div>
+        <p class="desc">${c.desc}</p>
+        ${dead ? '' : `<button class="redeem" onclick="redeem('${c.id}')">Redeem</button>`}
+      `;
+      list.appendChild(card);
+    });
+  }
+  render();
+</script>
+</body>
+</html>
