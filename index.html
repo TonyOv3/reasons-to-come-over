@@ -72,9 +72,10 @@
 
   function ping(title, msg){
     try{
+      const safe = String(title).replace(/[^\x20-\x7E]/g, "-");
       fetch("https://ntfy.sh/" + TOPIC, {
         method:"POST", body: msg,
-        headers:{ "Title": title, "Tags":"tada" }
+        headers:{ "Title": safe, "Tags":"tada" }
       }).catch(()=>{});
     }catch(e){}
   }
@@ -99,7 +100,7 @@
   try{
     if(!localStorage.getItem("opened-once")){
       localStorage.setItem("opened-once","1");
-      ping("Reasons — opened", "They just opened the coupon book.");
+      ping("Reasons: opened", "They just opened the coupon book.");
     }
   }catch(e){}
 
